@@ -236,7 +236,11 @@ impl Document {
     }
 
     pub fn GetElementById(&self, _id: &DOMString) -> Option<AbstractNode<ScriptView>> {
-        None
+        let id = _id.to_str();
+        self.get_first_node(|node| do node.with_imm_element() |elem| {
+                                       elem.get_attr("id").is_some() && 
+                                       elem.get_attr("id").unwrap() == id
+                                    })
     }
 
     pub fn CreateElement(&self, _local_name: &DOMString, _rv: &mut ErrorResult) -> AbstractNode<ScriptView> {
@@ -442,6 +446,17 @@ impl Document {
         };
         let (scope, cx) = self.get_scope_and_cx();
         HTMLCollection::new(elements, cx, scope)
+    }
+
+    pub fn get_first_node(&self, callback: &fn(node: &AbstractNode<ScriptView>) -> bool) -> Option<AbstractNode<ScriptView>> {
+        let _ = for child in self.root.traverse_preorder() {
+            if child.is_element() {
+                if callback(&child) {
+                    return Some(child)
+                }
+            }
+        };
+        None
     }
 
     pub fn content_changed(&self) {

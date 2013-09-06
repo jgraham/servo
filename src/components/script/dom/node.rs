@@ -243,6 +243,14 @@ impl<'self, View> AbstractNode<View> {
         }
     }
 
+    pub fn is_doctype(self) -> bool {
+        self.type_id() == DoctypeNodeTypeId
+    }
+
+    pub fn is_comment(self) -> bool {
+        self.type_id() == CommentNodeTypeId
+    }
+
     pub fn is_text(self) -> bool {
         self.type_id() == TextNodeTypeId
     }
@@ -509,8 +517,32 @@ impl Node<ScriptView> {
         fail!("stub")
     }
 
-    pub fn AppendChild(&mut self, _node: AbstractNode<ScriptView>, _rv: &mut ErrorResult) -> AbstractNode<ScriptView> {
-        fail!("stub")
+    pub fn AppendChild(&mut self, abstract_self: AbstractNode<ScriptView>, node: AbstractNode<ScriptView>, _rv: &mut ErrorResult) -> AbstractNode<ScriptView> {
+
+        //FIXME: This should also work for Document and DocumentFragments when they inherit from node
+        if (!abstract_self.is_element()) {
+            //FIXME: Throw an exception
+            fail!("HierarchyRequestError")
+        }
+        //FIXME: Shadow DOM stuff
+        if (abstract_self == node) {
+            fail!("HierarchyRequestError")
+        }
+        //TODO: This should move into its own method somewhere
+        for ancestor in node.traverse_ancestors() {
+            if (ancestor == abstract_self) {
+                fail!("HierarchyRequestError")
+            }
+        }
+        if !(node.is_element() || node.is_text() || node.is_comment()) {
+            fail!("HierarchyRequestError")
+        }
+        match (node.parent_node()) {
+            Some(parent) => {parent.remove_child(node)}
+            None => {}
+        }
+        abstract_self.add_child(node);
+        node
     }
 
     pub fn ReplaceChild(&mut self, _node: AbstractNode<ScriptView>, _child: AbstractNode<ScriptView>, _rv: &mut ErrorResult) -> AbstractNode<ScriptView> {

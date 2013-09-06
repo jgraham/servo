@@ -20,6 +20,7 @@ use dom::htmltitleelement::HTMLTitleElement;
 
 use js::jsapi::{JS_AddObjectRoot, JS_RemoveObjectRoot, JSObject, JSContext, JSVal};
 use js::glue::RUST_OBJECT_TO_JSVAL;
+use html::hubbub_html_parser::{build_element_from_tag};
 use servo_util::tree::TreeNodeRef;
 
 use std::cast;
@@ -244,7 +245,8 @@ impl Document {
     }
 
     pub fn CreateElement(&self, _local_name: &DOMString, _rv: &mut ErrorResult) -> AbstractNode<ScriptView> {
-        fail!("stub")
+        let (_scope, cx) = self.get_scope_and_cx();
+        build_element_from_tag(cx, _local_name.to_str())
     }
 
     pub fn CreateElementNS(&self, _namespace: &DOMString, _qualified_name: &DOMString, _rv: &mut ErrorResult) -> AbstractNode<ScriptView> {

@@ -6,14 +6,12 @@ use dom::bindings::codegen::HTMLDocumentBinding;
 use dom::bindings::utils::{DOMString, ErrorResult, null_string};
 use dom::bindings::utils::{CacheableWrapper, BindingObject, WrapperCache};
 use dom::document::{AbstractDocument, Document, WrappableDocument, HTML};
-use dom::element::HTMLHeadElementTypeId;
+use dom::element::{HTMLHeadElementTypeId, HTMLBodyElementTypeId};
 use dom::htmlcollection::HTMLCollection;
 use dom::node::{AbstractNode, ScriptView, ElementNodeTypeId};
 use dom::window::Window;
 
 use js::jsapi::{JSObject, JSContext};
-
-use servo_util::tree::TreeNodeRef;
 
 use std::libc;
 use std::ptr;
@@ -68,14 +66,15 @@ impl HTMLDocument {
     }
 
     pub fn GetHead(&self) -> Option<AbstractNode<ScriptView>> {
-        let mut headNode: Option<AbstractNode<ScriptView>> = None;
-        let _ = for child in self.parent.root.traverse_preorder() {
-            if child.type_id() == ElementNodeTypeId(HTMLHeadElementTypeId) {
-                headNode = Some(child);
-                break;
-            }
-        };
-        headNode 
+        self.parent.get_first_node(|node| {
+            node.type_id() == ElementNodeTypeId(HTMLHeadElementTypeId)
+        })
+    }
+
+    pub fn GetBody(&self) -> Option<AbstractNode<ScriptView>> {
+        self.parent.get_first_node(|node| {
+            node.type_id() == ElementNodeTypeId(HTMLBodyElementTypeId)
+        })
     }
 
     pub fn Images(&self) -> @mut HTMLCollection {

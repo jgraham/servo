@@ -71,8 +71,8 @@ impl HTMLImageElement {
                   src: &DOMString) -> ErrorResult {
         let node = &mut self.htmlelement.element;
         node.set_attr(abstract_self,
-                      &Some(~"src"),
-                      &Some(null_str_as_empty(src)));
+                      &~"src",
+                      &null_str_as_empty(src));
         Ok(())
     }
 
@@ -132,8 +132,8 @@ impl HTMLImageElement {
                     width: u32) -> ErrorResult {
         let node = &mut self.htmlelement.element;
         node.set_attr(abstract_self,
-                      &Some(~"width"),
-                      &Some(width.to_str()));
+                      &~"width",
+                      &width.to_str());
         Ok(())
     }
 
@@ -169,8 +169,8 @@ impl HTMLImageElement {
                      height: u32) -> ErrorResult {
         let node = &mut self.htmlelement.element;
         node.set_attr(abstract_self,
-                      &Some(~"height"),
-                      &Some(height.to_str()));
+                      &~"height",
+                      &height.to_str());
         Ok(())
     }
 

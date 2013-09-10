@@ -19,7 +19,7 @@ use dom::window::Window;
 use dom::windowproxy::WindowProxy;
 use dom::htmltitleelement::HTMLTitleElement;
 use html::hubbub_html_parser::build_element_from_tag;
-use js::jsapi::{JSObject, JSContext, JSVal};
+use js::jsapi::{JS_AddObjectRoot, JSObject, JSContext, JSVal};
 use js::jsapi::{JSTRACE_OBJECT, JSTracer, JS_CallTracer};
 use js::glue::RUST_OBJECT_TO_JSVAL;
 use servo_util::tree::TreeNodeRef;
@@ -78,6 +78,7 @@ impl AbstractDocument {
     }
 }
 
+#[deriving(Eq)]
 pub enum DocumentType {
     HTML,
     SVG,
@@ -95,6 +96,14 @@ pub struct Document {
 impl Document {
     #[fixed_stack_segment]
     pub fn new(root: AbstractNode<ScriptView>, window: Option<@mut Window>, doctype: DocumentType) -> Document {
+        let compartment = unsafe {(*window.get_ref().page).js_info.get_ref().js_compartment };
+        do root.with_base |base| {
+            assert!(base.wrapper.get_wrapper().is_not_null());
+            let rootable = base.wrapper.get_rootable();
+            unsafe {
+                JS_AddObjectRoot(compartment.cx.ptr, rootable);
+            }
+        }
         Document {
             root: root,
             wrapper: WrapperCache::new(),
@@ -337,8 +346,8 @@ impl Document {
                         let new_title = @HTMLTitleElement {
                             htmlelement: HTMLElement::new(HTMLTitleElementTypeId, ~"title")
                         };
-                        let new_title = unsafe { 
-                            Node::as_abstract_node(cx, new_title) 
+                        let new_title = unsafe {
+                            Node::as_abstract_node(cx, new_title)
                         };
                         new_title.add_child(self.CreateTextNode(title));
                         node.add_child(new_title);

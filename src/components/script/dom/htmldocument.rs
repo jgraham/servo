@@ -77,7 +77,7 @@ impl HTMLDocument {
                 break;
             }
         };
-        headNode 
+        headNode
     }
 
     pub fn Images(&self) -> @mut HTMLCollection {

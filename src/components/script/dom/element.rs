@@ -3,13 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Element nodes.
-
 use dom::bindings::utils::{BindingObject, CacheableWrapper, DOMString, ErrorResult, Fallible, WrapperCache};
-use dom::bindings::utils::{null_str_as_empty, null_str_as_empty_ref};
+use dom::bindings::utils::{null_str_as_empty};
 use dom::htmlcollection::HTMLCollection;
 use dom::clientrect::ClientRect;
 use dom::clientrectlist::ClientRectList;
 use dom::node::{ElementNodeTypeId, Node, ScriptView, AbstractNode};
+use dom::attr:: Attr;
+use dom::document;
+use dom::namespace;
+use dom::namespace::Namespace;
 use layout_interface::{ContentBoxQuery, ContentBoxResponse, ContentBoxesQuery};
 use layout_interface::{ContentBoxesResponse};
 use newcss::stylesheet::Stylesheet;
@@ -18,7 +21,7 @@ use js::jsapi::{JSContext, JSObject};
 
 use std::cell::Cell;
 use std::comm;
-use std::str::eq_slice;
+use std::str::{eq, eq_slice};
 use std::ascii::StrAsciiExt;
 
 pub struct Element {
@@ -128,41 +131,103 @@ impl<'self> Element {
         }
     }
 
-    pub fn get_attr(&'self self, name: &str) -> Option<&'self str> {
-        // FIXME: Need an each() that links lifetimes in Rust.
+    pub fn normalise_attr_name(&self, name: &DOMString) -> ~str {
+        //FIXME: Throw for XML-invalid names
+        let owner = self.node.owner_doc;
+        match owner {
+            Some(document) => {
+                if document.with_base(|doc| doc.doctype) == document::HTML { // && self.namespace == Namespace::HTML
+                    name.to_str().to_ascii_lower()
+                } else {
+                    name.to_str()
+                }
+            },
+            None => fail!("Elements should always have an owner")
+        }
+    }
+
+    pub fn get_attr(&self, name: &str) -> Option<&str> {
+        self.get_attribute(&None, name)
+    }
+
+    pub fn get_attribute(&self,
+                         namespace_url: &DOMString,
+                         name: &str) -> Option<&str> {
+        let namespace = match *namespace_url {
+            Some(ref x) => Namespace::from_str(*x),
+            None => namespace::Null
+        };
         for attr in self.attrs.iter() {
-            // FIXME: only case-insensitive in the HTML namespace (as opposed to SVG, etc.)
-            if attr.name.eq_ignore_ascii_case(name) {
+            if eq_slice(attr.local_name(), name) && attr.namespace == namespace {
                 let val: &str = attr.value;
                 return Some(val);
             }
         }
-        return None;
+        None
     }
 
     pub fn set_attr(&mut self,
                     abstract_self: AbstractNode<ScriptView>,
-                    raw_name: &DOMString,
-                    raw_value: &DOMString) {
-        let name = null_str_as_empty(raw_name);
-        let value_cell = Cell::new(null_str_as_empty(raw_value));
+                    raw_name: &~str,
+                    raw_value: &~str) {
+        self.set_attribute(abstract_self, namespace::Null, raw_name, raw_value)
+    }
+
+    pub fn set_attribute(&mut self,
+                         abstract_self: AbstractNode<ScriptView>,
+                         namespace: Namespace,
+                         raw_name: &~str,
+                         raw_value: &~str) {
+        //FIXME: Throw for XML-invalid names
+        //FIXME: Throw for XMLNS-invalid names
+        let name = raw_name.to_str();
+        let (prefix, local_name) = if name.contains(":")  {
+            let parts: ~[&str] = name.splitn_iter(':', 1).collect();
+            (Some(parts[0].to_owned()), parts[1].to_owned())
+        } else {
+            (None, name.clone())
+        };
+        match prefix {
+            Some(ref prefix_str) => {
+                if (namespace == namespace::Null ||
+                    (eq(prefix_str, &~"xml") && namespace != namespace::XML) ||
+                    (eq(prefix_str, &~"xmlns") && namespace != namespace::XMLNS)) {
+                    fail!("NamespaceError");
+                }
+            },
+            None => {}
+        }
+        let value_cell = Cell::new(raw_value.to_str());
+
         let mut found = false;
         for attr in self.attrs.mut_iter() {
-            if eq_slice(attr.name, name) {
+            if (eq_slice(attr.local_name().to_str(), name) &&
+                attr.namespace == namespace) {
                 attr.value = value_cell.take().clone();
                 found = true;
                 break;
             }
         }
         if !found {
-            self.attrs.push(Attr::new(name.to_str(), value_cell.take().clone()));
+            self.attrs.push(Attr::new_ns(local_name.clone(),
+                                         value_cell.take().clone(),
+                                         name.to_str(),
+                                         namespace.clone(), prefix));
         }
+        self.after_set_attr(abstract_self, &namespace, &local_name, raw_value)
+    }
 
-        if "style" == name {
+    fn after_set_attr(&mut self,
+                      abstract_self: AbstractNode<ScriptView>,
+                      namespace: &Namespace,
+                      local_name: &~str,
+                      value: &~str) {
+
+        if eq(&~"style", local_name) && *namespace == namespace::Null {
             self.style_attribute = Some(
                 Stylesheet::from_attribute(
                     FromStr::from_str("http://www.example.com/").unwrap(),
-                    null_str_as_empty_ref(raw_value)));
+                    *value));
         }
 
         //XXXjdm We really need something like a vtable so we can call AfterSetAttr.
@@ -170,12 +235,12 @@ impl<'self> Element {
         match abstract_self.type_id() {
             ElementNodeTypeId(HTMLImageElementTypeId) => {
                 do abstract_self.with_mut_image_element |image| {
-                    image.AfterSetAttr(raw_name, raw_value);
+                    image.AfterSetAttr(&Some(local_name.clone()), &Some(value.clone()));
                 }
             }
             ElementNodeTypeId(HTMLIframeElementTypeId) => {
                 do abstract_self.with_mut_iframe_element |iframe| {
-                    iframe.AfterSetAttr(raw_name, raw_value);
+                    iframe.AfterSetAttr(&Some(local_name.clone()), &Some(value.clone()));
                 }
             }
             _ => ()
@@ -202,30 +267,70 @@ impl Element {
         Some(self.tag_name.to_owned().to_ascii_upper())
     }
 
-    pub fn Id(&self) -> DOMString {
-        None
+    pub fn Id(&self, _abstract_self: AbstractNode<ScriptView>) -> DOMString {
+        let id = self.get_attr(&"id");
+        match (id) {
+            Some(x) => Some(x.to_owned()),
+            None => None
+        }
     }
 
-    pub fn SetId(&self, _id: &DOMString) {
+    pub fn SetId(&mut self, abstract_self: AbstractNode<ScriptView>, id: &DOMString) {
+        self.set_attribute(abstract_self, namespace::Null, &~"id", &null_str_as_empty(id))
     }
 
     pub fn GetAttribute(&self, name: &DOMString) -> DOMString {
-        self.get_attr(null_str_as_empty_ref(name)).map(|s| s.to_owned())
+        let new_name = self.normalise_attr_name(name);
+        for attr in self.attrs.iter() {
+            if (eq_slice(attr.name, new_name)) {
+                return Some(attr.value.clone());
+            }
+        }
+        None
     }
 
-    pub fn GetAttributeNS(&self, _namespace: &DOMString, _localname: &DOMString) -> DOMString {
-        None
+    pub fn GetAttributeNS(&self, namespace: &DOMString, local_name: &DOMString) -> DOMString {
+        match self.get_attribute(namespace, local_name.to_str()) {
+            Some(x) => Some(x.to_owned()),
+            None => None
+        }
     }
 
     pub fn SetAttribute(&mut self,
                         abstract_self: AbstractNode<ScriptView>,
                         name: &DOMString,
                         value: &DOMString) -> ErrorResult {
-        self.set_attr(abstract_self, name, value);
+        let new_name = self.normalise_attr_name(name);
+        let value_cell = Cell::new(value.to_str());
+
+        let mut found = false;
+        for attr in self.attrs.mut_iter() {
+            if (eq_slice(attr.name, new_name)) {
+                attr.value = value_cell.take().clone();
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            self.attrs.push(Attr::new(new_name.clone(), value_cell.take().clone()));
+        }
+
+        self.after_set_attr(abstract_self, &namespace::Null, &new_name.clone(),
+                            &null_str_as_empty(value));
         Ok(())
     }
 
-    pub fn SetAttributeNS(&self, _namespace: &DOMString, _localname: &DOMString, _value: &DOMString) -> ErrorResult {
+    pub fn SetAttributeNS(&mut self,
+                          abstract_self: AbstractNode<ScriptView>,
+                          namespace_url: &DOMString,
+                          name: &DOMString,
+                          value: &DOMString) -> ErrorResult {
+        let namespace = match *namespace_url {
+            None => namespace::Null,
+            Some(~"") => namespace::Null,
+            Some(ref x) => Namespace::from_str(*x)
+        };
+        self.set_attribute(abstract_self, namespace, &null_str_as_empty(name), &null_str_as_empty(value));
         Ok(())
     }
 
@@ -237,12 +342,18 @@ impl Element {
         Ok(())
     }
 
-    pub fn HasAttribute(&self, _name: &DOMString) -> bool {
-        false
+    pub fn HasAttribute(&self, name: &DOMString) -> bool {
+        match self.GetAttribute(name) {
+            None => false,
+            _ => true
+        }
     }
 
-    pub fn HasAttributeNS(&self, _nameapce: &DOMString, _localname: &DOMString) -> bool {
-        false
+    pub fn HasAttributeNS(&self, namespace: &DOMString, local_name: &DOMString) -> bool {
+        match self.GetAttributeNS(namespace, local_name) {
+            None => false,
+            _ => true
+        }
     }
 
     pub fn GetElementsByTagName(&self, _localname: &DOMString) -> @mut HTMLCollection {
@@ -415,16 +526,3 @@ impl Element {
     }
 }
 
-pub struct Attr {
-    name: ~str,
-    value: ~str,
-}
-
-impl Attr {
-    pub fn new(name: ~str, value: ~str) -> Attr {
-        Attr {
-            name: name,
-            value: value
-        }
-    }
-}

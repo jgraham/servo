@@ -55,7 +55,7 @@ impl DOMParser {
                     HTMLDocument::new(root, None)
                 }
                 Text_xml => {
-                    AbstractDocument::as_abstract(cx, @mut Document::new(root, None, XML))
+                    AbstractDocument::as_abstract(cx, @mut Document::new(root, None, XML, false))
                 }
                 _ => {
                     fail!("unsupported document type")

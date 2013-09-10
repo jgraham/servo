@@ -73,6 +73,7 @@ impl AbstractDocument {
     }
 }
 
+#[deriving(Eq)]
 pub enum DocumentType {
     HTML,
     SVG,
@@ -84,12 +85,13 @@ pub struct Document {
     wrapper: WrapperCache,
     window: Option<@mut Window>,
     doctype: DocumentType,
-    title: ~str
+    title: ~str,
+    html: bool
 }
 
 impl Document {
     #[fixed_stack_segment]
-    pub fn new(root: AbstractNode<ScriptView>, window: Option<@mut Window>, doctype: DocumentType) -> Document {
+    pub fn new(root: AbstractNode<ScriptView>, window: Option<@mut Window>, doctype: DocumentType, html: bool) -> Document {
         let compartment = unsafe {(*window.get_ref().page).js_info.get_ref().js_compartment };
         do root.with_base |base| {
             assert!(base.wrapper.get_wrapper().is_not_null());
@@ -103,7 +105,8 @@ impl Document {
             wrapper: WrapperCache::new(),
             window: window,
             doctype: doctype,
-            title: ~""
+            title: ~"",
+            html: html
         }
     }
 
@@ -114,7 +117,7 @@ impl Document {
 
         let cx = unsafe {(*owner.page).js_info.get_ref().js_compartment.cx.ptr};
         let root = unsafe { Node::as_abstract_node(cx, root) };
-        AbstractDocument::as_abstract(cx, @mut Document::new(root, None, XML))
+        AbstractDocument::as_abstract(cx, @mut Document::new(root, None, XML, false))
     }
 }
 

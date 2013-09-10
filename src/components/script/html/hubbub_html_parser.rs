@@ -8,6 +8,7 @@ use dom::htmlelement::HTMLElement;
 use dom::htmlheadingelement::{Heading1, Heading2, Heading3, Heading4, Heading5, Heading6};
 use dom::htmliframeelement::IFrameSize;
 use dom::htmlformelement::HTMLFormElement;
+use dom::namespace;
 use dom::node::{AbstractNode, ElementNodeTypeId, Node, ScriptView};
 use dom::types::*;
 use html::cssparse::{InlineProvenance, StylesheetProvenance, UrlProvenance, spawn_css_parser};
@@ -371,7 +372,7 @@ pub fn parse_html(cx: *JSContext,
             debug!("-- attach attrs");
             do node.as_mut_element |element| {
                 for attr in tag.attributes.iter() {
-                    element.set_attr(&str(attr.name.clone()), &str(attr.value.clone()));
+                    element.set_attribute(namespace::Null, attr.name.clone(), &str(attr.value.clone()));
                 }
             }
 

@@ -15,8 +15,8 @@ interface HTMLDocument : Document {
   // DOM tree accessors
   [Throws]
   getter object (DOMString name);
-  /*[SetterThrows]
-    attribute HTMLElement? body;*/
+  /*[SetterThrows]*/
+  attribute HTMLElement? body;
   readonly attribute HTMLHeadElement? head;
   readonly attribute HTMLCollection images;
   readonly attribute HTMLCollection embeds;

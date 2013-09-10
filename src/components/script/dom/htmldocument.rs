@@ -24,7 +24,7 @@ pub struct HTMLDocument {
 impl HTMLDocument {
     pub fn new(root: AbstractNode<ScriptView>, window: Option<@mut Window>) -> AbstractDocument {
         let doc = @mut HTMLDocument {
-            parent: Document::new(root, window, HTML)
+            parent: Document::new(root, window, HTML, true)
         };
 
         let compartment = unsafe { (*window.get_ref().page).js_info.get_ref().js_compartment };
@@ -72,9 +72,12 @@ impl HTMLDocument {
     }
 
     pub fn GetBody(&self) -> Option<AbstractNode<ScriptView>> {
-        self.parent.get_first_node(|node| {
-            node.type_id() == ElementNodeTypeId(HTMLBodyElementTypeId)
-        })
+        self.parent.get_first_node(|node| { node.type_id() ==
+        ElementNodeTypeId(HTMLBodyElementTypeId) }) 
+    }
+
+    pub fn SetBody(&self, _elem: Option<AbstractNode<ScriptView>>) {
+        fail!("Setting document.body should throw in IDL layer")
     }
 
     pub fn Images(&self) -> @mut HTMLCollection {

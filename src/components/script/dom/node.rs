@@ -599,6 +599,7 @@ impl Node<ScriptView> {
     pub fn HasAttributes(&self) -> bool {
         false
     }
+
 }
 
 /// The CSS library requires that DOM nodes be convertible to `*c_void` via the `VoidPtrLike`

@@ -133,7 +133,7 @@ impl<'self> Element {
         }
     }
 
-    pub fn normalise_attr_name(&self, &DOMString name) -> ~str {
+    pub fn normalise_attr_name(&self, name: &DOMString) -> ~str {
         //FIXME: Throw for XML-invalid names
         let owner = self.parent.owner_doc;
         match owner {
@@ -148,7 +148,7 @@ impl<'self> Element {
         }
     }
 
-    pub fn get_reflect_attr(&'self self, name: &str) -> Option<&'self str> {
+    pub fn get_attr(&'self self, name: &str) -> Option<&'self str> {
         self.get_attribute(None, name)
     }
 
@@ -199,8 +199,10 @@ impl<'self> Element {
             }
         }
         if !found {
-            self.attrs.push(Attr::new_ns(local_name.clone(), value_cell.take().clone(),
-                                         name.to_str(), namespace.clone(), prefix));
+            self.attrs.push(Attr::new_ns(local_name.clone(),
+                                         value_cell.take().clone(),
+                                         name.to_str(),
+                                         namespace.clone(), prefix));
         }
         self.after_set_attr(&namespace, local_name, value)
     }
@@ -235,7 +237,7 @@ impl Element {
     }
 
     pub fn Id(&self) -> DOMString {
-        let id = self.get_reflect_attr(&"id");
+        let id = self.get_attr(&"id");
         match (id) {
             Some(x) => str(x.to_owned()),
             None => str(~"")
@@ -249,11 +251,11 @@ impl Element {
     pub fn GetAttribute(&self, name: &DOMString) -> DOMString {
         let new_name = self.normalise_attr_name(name);
         for attr in self.attrs.iter() {
-            if (eq_slice(attr.name, name)) {
-                return attr.val;
+            if (eq_slice(attr.name, new_name)) {
+                return attr.value.clone();
             }
         }
-        null_string;
+        null_string
     }
 
     pub fn GetAttributeNS(&self, namespace: &DOMString, local_name: &DOMString) -> DOMString {
@@ -306,7 +308,7 @@ impl Element {
     }
 
     pub fn HasAttributeNS(&self, namespace: &DOMString, localname: &DOMString) -> bool {
-        false;
+        false
     }
 
     pub fn GetElementsByTagName(&self, _localname: &DOMString) -> @mut HTMLCollection {

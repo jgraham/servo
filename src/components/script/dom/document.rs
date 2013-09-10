@@ -12,6 +12,7 @@ use dom::htmlcollection::HTMLCollection;
 use dom::htmldocument::HTMLDocument;
 use dom::htmlelement::HTMLElement;
 use dom::htmlhtmlelement::HTMLHtmlElement;
+use dom::namespace;
 use dom::node::{AbstractNode, ScriptView, Node, ElementNodeTypeId};
 use dom::text::Text;
 use dom::window::Window;
@@ -435,7 +436,8 @@ impl Document {
 
     pub fn GetElementsByName(&self, name: &DOMString) -> @mut HTMLCollection {
         self.createHTMLCollection(|elem|
-            elem.get_attr("name").is_some() && eq_slice(elem.get_attr("name").unwrap(), name.to_str()))
+            elem.get_attr("name").is_some() && 
+            eq_slice(elem.get_attr("name").unwrap(), name.to_str()))
     }
     
     pub fn createHTMLCollection(&self, callback: &fn(elem: &Element) -> bool) -> @mut HTMLCollection {

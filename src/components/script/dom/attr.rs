@@ -1,12 +1,18 @@
-//use dom::bindings::attr;
+use dom::bindings::codegen::AttrBinding;
 use dom::bindings::utils::{null_string, str};
 use dom::bindings::utils::{BindingObject, CacheableWrapper, DOMString, ErrorResult, WrapperCache};
 use dom::namespace;
 use dom::namespace::Namespace;
+use dom::node::Node;
+use script_task::{page_from_context};
 
+use js::jsapi::{JSObject, JSContext};
+
+use std::cast;
 use std::str::eq_slice;
 
 pub struct Attr {
+    wrapper: WrapperCache,
     priv local_name: Option<~str>,
     value: DOMString,
     name: ~str,
@@ -14,9 +20,30 @@ pub struct Attr {
     prefix: DOMString
 }
 
+impl CacheableWrapper for Attr {
+    fn get_wrappercache(&mut self) -> &mut WrapperCache {
+        unsafe { cast::transmute(&mut self.wrapper) }
+    }
+
+    fn wrap_object_shared(@mut self, cx: *JSContext, scope: *JSObject) -> *JSObject {
+        let mut unused = false;
+        AttrBinding::Wrap(cx, scope, self, &mut unused)
+    }
+}
+
+impl BindingObject for Attr {
+    fn GetParentObject(&self, cx: *JSContext) -> Option<@mut CacheableWrapper> {
+        let page = page_from_context(cx);
+        unsafe {
+            Some((*page).frame.get_ref().window as @mut CacheableWrapper)
+        }
+    }
+}
+
 impl Attr {
     pub fn new(name: ~str, value: ~str) -> Attr {
         Attr {
+            wrapper: WrapperCache::new(),
             local_name: None, //Only store local_name if it is different from name
             value: str(value),
             name: name, //TODO: Atomise attribute names
@@ -28,6 +55,7 @@ impl Attr {
     pub fn new_ns(local_name: ~str, value: ~str,  name: ~str, namespace: Namespace, prefix: Option<~str>) -> Attr {
         
         Attr {
+            wrapper: WrapperCache::new(),
             local_name: if eq_slice(local_name, name) {None} else {Some(local_name)},
             value: str(value),
             name: name,
@@ -43,11 +71,11 @@ impl Attr {
         }
     }
 
-    pub fn GetLocalName(&self) -> DOMString {
+    pub fn LocalName(&self) -> DOMString {
         str(self.local_name())
     }
 
-    pub fn GetValue(&self) -> DOMString {
+    pub fn Value(&self) -> DOMString {
         self.value.clone()
     }
 
@@ -55,11 +83,11 @@ impl Attr {
         self.value = (*value).clone()
     }
 
-    pub fn GetName(&self) -> DOMString {
+    pub fn Name(&self) -> DOMString {
         str(self.name.clone())
     }
 
-    pub fn GetNamespace(&self) -> DOMString {
+    pub fn GetNamespaceURI(&self) -> DOMString {
         self.namespace.to_str()
     }
 

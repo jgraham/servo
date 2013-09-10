@@ -381,7 +381,8 @@ pub fn parse_html(cx: *JSContext,
                 // Handle CSS style sheets from <link> elements
                 ElementNodeTypeId(HTMLLinkElementTypeId) => {
                     do node.with_imm_element |element| {
-                        match (element.get_attr("rel"), element.get_attr("href")) {
+                        match (element.get_attr("rel"), 
+                               element.get_attr("href")) {
                             (Some(rel), Some(href)) => {
                                 if rel == "stylesheet" {
                                     debug!("found CSS stylesheet: %s", href);

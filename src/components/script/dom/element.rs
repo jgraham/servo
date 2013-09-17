@@ -3,8 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Element nodes.
-use dom::bindings::utils::{BindingObject, CacheableWrapper, DOMString, ErrorResult, Fallible, WrapperCache};
+use dom::bindings::utils::{InvalidCharacter, Namespace};
+use dom::bindings::utils::{QName, Name, InvalidXMLName, xml_name_type};
 use dom::bindings::utils::{null_str_as_empty};
+use dom::bindings::utils::{BindingObject, CacheableWrapper, DOMString, ErrorResult, WrapperCache};
 use dom::htmlcollection::HTMLCollection;
 use dom::clientrect::ClientRect;
 use dom::clientrectlist::ClientRectList;
@@ -132,17 +134,11 @@ impl<'self> Element {
     }
 
     pub fn normalise_attr_name(&self, name: &DOMString) -> ~str {
-        //FIXME: Throw for XML-invalid names
-        let owner = self.node.owner_doc;
-        match owner {
-            Some(document) => {
-                if document.with_base(|doc| doc.doctype) == document::HTML { // && self.namespace == Namespace::HTML
-                    name.to_str().to_ascii_lower()
-                } else {
-                    name.to_str()
-                }
-            },
-            None => fail!("Elements should always have an owner")
+        let owner = self.parent.owner_doc.expect("Elements should always have an owner");
+        if owner.with_base(|doc| doc.doctype) == document::HTML { // && self.namespace == Namespace::HTML
+            name.to_str().to_ascii_lower()
+        } else {
+            name.to_str()
         }
     }
 
@@ -178,9 +174,8 @@ impl<'self> Element {
                          namespace: Namespace,
                          raw_name: &~str,
                          raw_value: &~str) {
-        //FIXME: Throw for XML-invalid names
-        //FIXME: Throw for XMLNS-invalid names
         let name = raw_name.to_str();
+
         let (prefix, local_name) = if name.contains(":")  {
             let parts: ~[&str] = name.splitn_iter(':', 1).collect();
             (Some(parts[0].to_owned()), parts[1].to_owned())
@@ -311,7 +306,7 @@ impl Element {
                 break;
             }
         }
-        if (!found) {
+        if !found {
             self.attrs.push(Attr::new(new_name.clone(), value_cell.take().clone()));
         }
 
@@ -325,6 +320,20 @@ impl Element {
                           namespace_url: &DOMString,
                           name: &DOMString,
                           value: &DOMString) -> ErrorResult {
+
+        let name_type = xml_name_type(name.to_str());
+        match name_type {
+            InvalidXMLName => {
+                *rv = Err(InvalidCharacter);
+                return;
+            },
+            Name => {
+                *rv = Err(Namespace);
+                return;
+            },
+            QName => {}
+        }
+
         let namespace = match *namespace_url {
             None => namespace::Null,
             Some(~"") => namespace::Null,

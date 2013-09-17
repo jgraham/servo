@@ -5,7 +5,9 @@
 use dom::bindings::codegen::DocumentBinding;
 use dom::bindings::utils::{DOMString, WrapperCache, ErrorResult, Fallible};
 use dom::bindings::utils::{BindingObject, CacheableWrapper, DerivedWrapper};
-use dom::bindings::utils::{is_valid_element_name, InvalidCharacter, Traceable, null_str_as_empty};
+use dom::bindings::utils::{InvalidCharacter, Traceable, null_str_as_empty};
+use dom::bindings::utils::{xml_name_type, InvalidXMLName};
+use dom::bindings::utils::{InvalidCharacter};
 use dom::element::{Element};
 use dom::element::{HTMLHtmlElementTypeId, HTMLHeadElementTypeId, HTMLTitleElementTypeId};
 use dom::event::Event;
@@ -19,7 +21,7 @@ use dom::window::Window;
 use dom::windowproxy::WindowProxy;
 use dom::htmltitleelement::HTMLTitleElement;
 use html::hubbub_html_parser::build_element_from_tag;
-use js::jsapi::{JS_AddObjectRoot, JSObject, JSContext, JSVal};
+use js::jsapi::{JSObject, JSContext, JSVal};
 use js::jsapi::{JSTRACE_OBJECT, JSTracer, JS_CallTracer};
 use js::glue::RUST_OBJECT_TO_JSVAL;
 use servo_util::tree::TreeNodeRef;
@@ -96,14 +98,6 @@ pub struct Document {
 impl Document {
     #[fixed_stack_segment]
     pub fn new(root: AbstractNode<ScriptView>, window: Option<@mut Window>, doctype: DocumentType) -> Document {
-        let compartment = unsafe {(*window.get_ref().page).js_info.get_ref().js_compartment };
-        do root.with_base |base| {
-            assert!(base.wrapper.get_wrapper().is_not_null());
-            let rootable = base.wrapper.get_rootable();
-            unsafe {
-                JS_AddObjectRoot(compartment.cx.ptr, rootable);
-            }
-        }
         Document {
             root: root,
             wrapper: WrapperCache::new(),
@@ -254,7 +248,8 @@ impl Document {
     pub fn CreateElement(&self, local_name: &DOMString) -> Fallible<AbstractNode<ScriptView>> {
         let cx = self.get_cx();
         let local_name = null_str_as_empty(local_name);
-        if !is_valid_element_name(local_name) {
+        let local_name = local_name.to_str();
+        if xml_name_type(local_name) == InvalidXMLName {
             return Err(InvalidCharacter);
         }
         let local_name = local_name.to_ascii_lower();

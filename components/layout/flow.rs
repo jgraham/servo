@@ -38,6 +38,7 @@ use incremental::{self, RECONSTRUCT_FLOW, REFLOW, REFLOW_OUT_OF_FLOW, RestyleDam
 use inline::InlineFlow;
 use model::{CollapsibleMargins, IntrinsicISizes, MarginCollapseInfo};
 use msg::compositor_msg::{LayerId, LayerType};
+use msg::constellation_msg::ConstellationChan;
 use multicol::MulticolFlow;
 use parallel::FlowParallelInfo;
 use rustc_serialize::{Encodable, Encoder};
@@ -362,6 +363,9 @@ pub trait Flow: fmt::Debug + Sync + Send + 'static {
     /// Attempts to perform incremental fixup of this flow by replacing its fragment's style with
     /// the new style. This can only succeed if the flow has exactly one fragment.
     fn repair_style(&mut self, new_style: &Arc<ComputedValues>);
+
+    /// Remove any compositor layers associated with this flow
+    fn remove_from_flow_tree(&self, _: ConstellationChan) {}
 }
 
 // Base access

@@ -16,6 +16,7 @@ use gfx::font_cache_task::FontCacheTask;
 use gfx::font_context::FontContext;
 use ipc_channel::ipc::{self, IpcSender};
 use msg::compositor_msg::LayerId;
+use msg::constellation_msg::ConstellationChan;
 use net_traits::image::base::Image;
 use net_traits::image_cache_task::{ImageCacheChan, ImageCacheTask, ImageResponse, ImageState};
 use net_traits::image_cache_task::{UsePlaceholder};
@@ -90,6 +91,8 @@ pub struct SharedLayoutContext {
 
     /// The current viewport size.
     pub viewport_size: Size2D<Au>,
+
+    pub constellation_chan: Mutex<ConstellationChan>,
 
     /// Screen sized changed?
     pub screen_size_changed: bool,

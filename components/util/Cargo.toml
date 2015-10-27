@@ -36,6 +36,9 @@ git = "https://github.com/pcwalton/ipc-channel"
 version = "0.2"
 features = [ "serde_serialization" ]
 
+[dependencies.webrender_traits]
+git = "https://github.com/glennw/webrender_traits"
+
 [dependencies]
 app_units = {version = "0.1", features = ["plugins"]}
 cssparser = { version = "0.4", features = [ "serde-serialization" ] }

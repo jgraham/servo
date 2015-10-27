@@ -43,6 +43,8 @@ mod export {
 }
 
 extern crate libc;
+extern crate webrender;
+extern crate webrender_traits;
 
 #[cfg(feature = "webdriver")]
 extern crate webdriver_server;
@@ -56,7 +58,7 @@ fn webdriver(port: u16, constellation: msg::constellation_msg::ConstellationChan
 fn webdriver(_port: u16, _constellation: msg::constellation_msg::ConstellationChan) { }
 
 use compositing::CompositorEventListener;
-use compositing::compositor_task::InitialCompositorState;
+use compositing::compositor_task::{InitialCompositorState, RenderListener};
 use compositing::constellation::InitialConstellationState;
 use compositing::windowing::WindowEvent;
 use compositing::windowing::WindowMethods;
@@ -72,10 +74,12 @@ use profile::mem as profile_mem;
 use profile::time as profile_time;
 use profile_traits::mem;
 use profile_traits::time;
+use util::opts;
+use util::resource_files::resources_dir_path;
+
 use std::borrow::Borrow;
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
-use util::opts;
 
 pub use _util as util;
 pub use export::canvas;
@@ -140,6 +144,33 @@ impl Browser {
             devtools::start_server(port)
         });
 
+        let render_notifier = Box::new(RenderNotifier::new(compositor_proxy.clone_compositor_proxy()));
+
+        let (webrender, webrender_api) = if opts::get().use_webrender {
+            let resource_path = resources_dir_path();
+            let size = opts::get().initial_window_size.to_untyped();
+
+            // TODO(gw): Duplicates device_pixels_per_screen_px from compositor. Tidy up!
+            let device_pixel_ratio = match opts.device_pixels_per_px {
+                Some(device_pixels_per_px) => device_pixels_per_px,
+                None => match opts.output_file {
+                    Some(_) => 1.0,
+                    None => {
+                        window.as_ref().map(|window| window.hidpi_factor().get()).unwrap_or(1.0)
+                    }
+                }
+            };
+
+            let (webrender, api) = webrender::Renderer::new(render_notifier,
+                                                            size.width,
+                                                            size.height,
+                                                            device_pixel_ratio,
+                                                            resource_path);
+            (Some(webrender), Some(api))
+        } else {
+            (None, None)
+        };
+
         // Create the constellation, which maintains the engine
         // pipelines, including the script and layout threads, as well
         // as the navigation context.
@@ -148,7 +179,8 @@ impl Browser {
                                                       time_profiler_chan.clone(),
                                                       mem_profiler_chan.clone(),
                                                       devtools_chan,
-                                                      supports_clipboard);
+                                                      supports_clipboard,
+                                                      webrender_api.as_ref().map(|wr| wr.clone_api()));
 
         if cfg!(feature = "webdriver") {
             if let Some(port) = opts.webdriver_port {
@@ -164,6 +196,8 @@ impl Browser {
             constellation_chan: constellation_chan,
             time_profiler_chan: time_profiler_chan,
             mem_profiler_chan: mem_profiler_chan,
+            webrender: webrender,
+            webrender_api: webrender_api,
         });
 
         Browser {
@@ -188,16 +222,37 @@ impl Browser {
     }
 }
 
+struct RenderNotifier {
+    compositor_proxy: Box<CompositorProxy>,
+}
+
+impl RenderNotifier {
+    fn new(compositor_proxy: Box<CompositorProxy>) -> RenderNotifier {
+        RenderNotifier {
+            compositor_proxy: compositor_proxy,
+        }
+    }
+}
+
+impl webrender_traits::RenderNotifier for RenderNotifier {
+    fn new_frame_ready(&mut self) {
+        self.compositor_proxy.recomposite();
+    }
+}
+
 fn create_constellation(opts: opts::Opts,
                         compositor_proxy: Box<CompositorProxy + Send>,
                         time_profiler_chan: time::ProfilerChan,
                         mem_profiler_chan: mem::ProfilerChan,
                         devtools_chan: Option<Sender<devtools_traits::DevtoolsControlMsg>>,
-                        supports_clipboard: bool) -> ConstellationChan {
+                        supports_clipboard: bool,
+                        webrender_api: Option<webrender_traits::RenderApi>) -> ConstellationChan {
     let resource_task = new_resource_task(opts.user_agent.clone(), devtools_chan.clone());
 
-    let image_cache_task = new_image_cache_task(resource_task.clone());
-    let font_cache_task = FontCacheTask::new(resource_task.clone());
+    let image_cache_task = new_image_cache_task(resource_task.clone(),
+                                                webrender_api.as_ref().map(|wr| wr.clone_api()));
+    let font_cache_task = FontCacheTask::new(resource_task.clone(),
+                                             webrender_api.as_ref().map(|wr| wr.clone_api()));
     let storage_task: StorageTask = StorageTaskFactory::new();
 
     let initial_state = InitialConstellationState {
@@ -210,6 +265,7 @@ fn create_constellation(opts: opts::Opts,
         time_profiler_chan: time_profiler_chan,
         mem_profiler_chan: mem_profiler_chan,
         supports_clipboard: supports_clipboard,
+        webrender_api: webrender_api,
     };
     let constellation_chan =
         Constellation::<layout::layout_task::LayoutTask,

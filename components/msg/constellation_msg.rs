@@ -24,6 +24,7 @@ use util::cursor::Cursor;
 use util::geometry::{PagePx, ViewportPx};
 use util::mem::HeapSizeOf;
 use webdriver_msg::{LoadStatus, WebDriverScriptCommand};
+use webrender_traits;
 
 #[derive(Clone)]
 pub struct ConstellationChan(pub Sender<Msg>);
@@ -364,7 +365,7 @@ pub enum WebDriverCommandMsg {
     TakeScreenshot(PipelineId, IpcSender<Option<Image>>),
 }
 
-#[derive(Deserialize, Eq, PartialEq, Serialize, HeapSizeOf)]
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Serialize, HeapSizeOf)]
 pub enum PixelFormat {
     K8,         // Luminance channel only
     KA8,        // Luminance + alpha
@@ -379,6 +380,7 @@ pub struct Image {
     pub format: PixelFormat,
     #[ignore_heap_size_of = "Defined in ipc-channel"]
     pub bytes: IpcSharedMemory,
+    pub id: Option<webrender_traits::ImageKey>,
 }
 
 /// Similar to net::resource_task::LoadData

@@ -56,6 +56,7 @@ extern crate style;
 extern crate unicode_bidi;
 extern crate unicode_script;
 extern crate url;
+extern crate webrender_traits;
 
 #[macro_use]
 mod layout_debug;

@@ -2245,6 +2245,20 @@ impl ToBlendMode for mix_blend_mode::T {
     }
 }
 
+trait ToImageRendering {
+    fn to_image_rendering(&self) -> webrender_traits::ImageRendering;
+}
+
+impl ToImageRendering for image_rendering::T {
+    fn to_image_rendering(&self) -> webrender_traits::ImageRendering {
+        match *self {
+            image_rendering::T::CrispEdges => webrender_traits::ImageRendering::CrispEdges,
+            image_rendering::T::Auto => webrender_traits::ImageRendering::Auto,
+            image_rendering::T::Pixelated => webrender_traits::ImageRendering::Pixelated,
+        }
+    }
+}
+
 trait ToFilterOps {
     fn to_filter_ops(&self) -> Vec<webrender_traits::FilterOp>;
 }
@@ -2427,6 +2441,7 @@ impl WebRenderDisplayItemConverter for DisplayItem {
                                            item.base.bounds.to_rectf(),
                                            item.base.clip.to_clip_region(),
                                            item.stretch_size.to_sizef(),
+                                           item.image_rendering.to_image_rendering(),
                                            id);
                     }
                 }

@@ -70,6 +70,7 @@ pub fn load_from_memory(buffer: &[u8]) -> Option<Image> {
                         height: image.height as u32,
                         format: PixelFormat::RGBA8,
                         bytes: IpcSharedMemory::from_bytes(&image.data[..]),
+                        id: None,
                     })
                 }
                 stb_image2::LoadResult::ImageF32(_image) => {
@@ -95,6 +96,7 @@ pub fn load_from_memory(buffer: &[u8]) -> Option<Image> {
                         height: rgba.height(),
                         format: PixelFormat::RGBA8,
                         bytes: IpcSharedMemory::from_bytes(&*rgba),
+                        id: None,
                     })
                 }
                 Err(e) => {

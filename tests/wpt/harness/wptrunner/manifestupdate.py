@@ -49,7 +49,8 @@ def data_cls_getter(output_node, visited_node):
 
 
 class ExpectedManifest(ManifestItem):
-    def __init__(self, node, test_path=None, url_base=None):
+    def __init__(self, node, test_path=None, url_base=None, property_order=None,
+                 boolean_properties=None):
         """Object representing all the tests in a particular manifest
 
         :param node: AST Node associated with this object. If this is None,
@@ -65,6 +66,8 @@ class ExpectedManifest(ManifestItem):
         self.url_base = url_base
         assert self.url_base is not None
         self.modified = False
+        self.boolean_properties = boolean_properties
+        self.property_order = property_order
 
     def append(self, child):
         ManifestItem.append(self, child)
@@ -229,7 +232,10 @@ class TestNode(ManifestItem):
                     self.set("expected", status, condition=None)
                     final_conditionals.append(self._data["expected"][-1])
             else:
-                for conditional_node, status in group_conditionals(self.new_expected):
+                for conditional_node, status in group_conditionals(
+                        self.new_expected,
+                        property_order=self.root.property_order,
+                        boolean_properties=self.root.boolean_properties):
                     if status != unconditional_status:
                         self.set("expected", status, condition=conditional_node.children[0])
                         final_conditionals.append(self._data["expected"][-1])
@@ -308,7 +314,7 @@ class SubtestNode(TestNode):
         return True
 
 
-def group_conditionals(values):
+def group_conditionals(values, property_order=None, boolean_properties=None):
     """Given a list of Result objects, return a list of
     (conditional_node, status) pairs representing the conditional
     expressions that are required to match each status
@@ -329,10 +335,11 @@ def group_conditionals(values):
 
     properties = set(item[0] for item in by_property.iterkeys())
 
-    prop_order = ["debug", "e10s", "os", "version", "processor", "bits"]
+    if property_order is None:
+        property_order = ["debug", "os", "version", "processor", "bits"]
     include_props = []
 
-    for prop in prop_order:
+    for prop in property_order:
         if prop in properties:
             include_props.append(prop)
 
@@ -343,20 +350,23 @@ def group_conditionals(values):
         if prop_set in conditions:
             continue
 
-        expr = make_expr(prop_set, status)
+        expr = make_expr(prop_set, status, boolean_properties=boolean_properties)
         conditions[prop_set] = (expr, status)
 
     return conditions.values()
 
 
-def make_expr(prop_set, status):
+def make_expr(prop_set, status, boolean_properties=None):
     """Create an AST that returns the value ``status`` given all the
     properties in prop_set match."""
     root = ConditionalNode()
 
     assert len(prop_set) > 0
 
-    no_value_props = set(["debug", "e10s"])
+    if boolean_properties is None:
+        boolean_properties = set(["debug"])
+    else:
+        boolean_properties = set(boolean_properties)
 
     expressions = []
     for prop, value in prop_set:
@@ -364,7 +374,7 @@ def make_expr(prop_set, status):
         value_cls = (NumberNode
                      if type(value) in number_types
                      else StringNode)
-        if prop not in no_value_props:
+        if prop not in boolean_properties:
             expressions.append(
                 BinaryExpressionNode(
                     BinaryOperatorNode("=="),

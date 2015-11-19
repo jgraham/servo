@@ -59,6 +59,14 @@ def env_options():
             "supports_debugger": True}
 
 
+def run_info_extras(**kwargs):
+    return {"backend": kwargs["servo_backend"]}
+
+
+def update_properties():
+    return ["debug", "os", "version", "processor", "bits", "backend"], None
+
+
 def make_hosts_file():
     hosts_fd, hosts_path = tempfile.mkstemp()
     with os.fdopen(hosts_fd, "w") as f:
@@ -88,6 +96,7 @@ class ServoWebDriverBrowser(Browser):
 
         env = os.environ.copy()
         env["HOST_FILE"] = self.hosts_path
+        env["RUST_BACKTRACE"] = "1"
 
         debug_args, command = browser_command(self.binary,
                                               [render_arg(self.render_backend), "--hard-fail",

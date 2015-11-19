@@ -61,6 +61,8 @@ def executor_kwargs(test_type, server_config, cache_manager, run_info_data,
                 executor_kwargs["timeout_multiplier"] = 2
         elif run_info_data["debug"]:
             executor_kwargs["timeout_multiplier"] = 3
+        elif test_type == "reftest":
+            executor_kwargs["timeout_multiplier"] = 2
     return executor_kwargs
 
 
@@ -71,8 +73,13 @@ def env_options():
             "certificate_domain": "web-platform.test",
             "supports_debugger": True}
 
+
 def run_info_extras(**kwargs):
     return {"e10s": kwargs["gecko_e10s"]}
+
+
+def update_properties():
+    return ["debug", "e10s", "os", "version", "processor", "bits"], {"debug", "e10s"}
 
 class FirefoxBrowser(Browser):
     used_ports = set()

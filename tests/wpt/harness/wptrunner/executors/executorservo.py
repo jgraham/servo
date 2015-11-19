@@ -87,7 +87,7 @@ class ServoTestharnessExecutor(ProcessTestExecutor):
 
         env = os.environ.copy()
         env["HOST_FILE"] = self.hosts_path
-
+        env["RUST_BACKTRACE"] = "1"
 
 
         if not self.interactive:
@@ -203,7 +203,7 @@ class ServoRefTestExecutor(ProcessTestExecutor):
             debug_args, command = browser_command(
                 self.binary,
                 [render_arg(self.browser.render_backend), "--hard-fail", "--exit",
-                 "-u", "Servo/wptrunner", "-Z", "disable-text-aa,load-webfonts-synchronously",
+                 "-u", "Servo/wptrunner", "-Z", "disable-text-aa",
                  "--output=%s" % output_path, full_url],
                 self.debug_info)
 
@@ -217,6 +217,7 @@ class ServoRefTestExecutor(ProcessTestExecutor):
 
             env = os.environ.copy()
             env["HOST_FILE"] = self.hosts_path
+            env["RUST_BACKTRACE"] = "1"
 
             if not self.interactive:
                 self.proc = ProcessHandler(self.command,

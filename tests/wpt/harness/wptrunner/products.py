@@ -55,3 +55,13 @@ def load_product(config, product):
             browser_cls, browser_kwargs,
             executor_classes, executor_kwargs,
             env_options, run_info_extras)
+
+
+def load_product_update(config, product):
+    module = product_module(config, product)
+    data = module.__wptrunner__
+
+    update_properties = (getattr(module, data["update_properties"])()
+                         if "update_properties" in data else (None, None))
+
+    return update_properties
